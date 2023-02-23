@@ -87,7 +87,7 @@ implicit conversion from enumeration type 'enum toktype' to different enumeratio
 #define IS_FSUBR(addr)      heap[addr].tag == FSUBR
 #define IS_FUNC(addr)       heap[addr].tag == FUNC
 #define IS_EMPTY(addr)      heap[addr].tag == EMP
-#define HAS_NAME(addr)      strcmp(heap[addr].name,x) == 0
+#define HAS_NAME(addr, x)      strcmp(heap[addr].name,x) == 0
 #define SAME_NAME(addr1,addr2) strcmp(heap[addr1].name,heap[addr2].name) == 0
 #define EQUAL_STR(x,y)      strcmp(x,y) == 0
 #define MARK_CELL(addr)     heap[addr].flag = USE

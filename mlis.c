@@ -3,13 +3,14 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <setjmp.h>
-#include "yasalisp.h"
+#include "mlis.h"
 
 //
 cell heap[HEAPSIZE];
 int stack[STACKSIZE];
 int argstk[STACKSIZE];
-struct token stok = {GO,OTHER};
+
+struct token stok = { GO, OTHER };
 jmp_buf buf;
 
 int main(){
@@ -299,11 +300,10 @@ void print(int addr) {
     case SUBR: printf("<subr>"); break;
     case FSUBR: printf("<fsubr>"); break;
     case FUNC: printf("function"); break;
-    case LIS: {
+    case LIS:
         printf("(");
         printlist(addr);
         break;
-    }
     }
 }
 
