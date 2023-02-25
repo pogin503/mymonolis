@@ -83,6 +83,15 @@ int freshcell() {
     return res;
 }
 
+void bindsym(int sym, int val) {
+    int addr = assoc(sym, ep);
+    if (addr == 0) {
+        assocsym(sym, val);
+    } else {
+        SET_CDR(addr, val);
+    }
+}
+
 int makenum(int num) {
     int addr;
 
@@ -100,6 +109,22 @@ int makesym(char *name) {
     SET_NAME(addr, name);
     return addr;
 
+}
+
+void push(int pt) {
+    stack[sp++]  = pt;
+}
+
+int pop() {
+    return stack[--sp];
+}
+
+void argpush(int addr) {
+    argstk[ap++] = addr;
+}
+
+void argpop() {
+    --ap;
 }
 
 int car(int addr){
@@ -270,8 +295,10 @@ int read() {
     case NUMBER: return makenum(atoi(stok.buf));
     case SYMBOL: return makesym(stok.buf);
     case QUOTE: return cons(makesym("quote"), cons(read(), NIL));
-    default: error(CANT_READ_ERR, "read", NIL);
+    default:
+        error(CANT_READ_ERR, "read", NIL);
     }
+
 }
 
 int readlist() {
@@ -300,6 +327,7 @@ void print(int addr) {
     case SUBR: printf("<subr>"); break;
     case FSUBR: printf("<fsubr>"); break;
     case FUNC: printf("function"); break;
+    case EMP: printf("nil"); break;
     case LIS:
         printf("(");
         printlist(addr);
@@ -439,19 +467,33 @@ int functionp(int addr){
         return(0);
 }
 
-//環境は次のように連想リストになっている。
+// 環境は次のように連想リストになっている。
 // env = ((sym1 . val1) (sym2 . val2) ...(t . t)(nil . 0))
 // assocでシンボルに対応する値を探す。
-//見つからなかった場合には-1を返す。
+// 見つからなかった場合には-1を返す。
 int findsym(int sym){
-	int addr;
-
-    addr = assoc(sym,ep);
+	int addr = assoc(sym,ep);
 
     if(addr == 0)
     	return(-1);
     else
     	return(cdr(addr));
+}
+
+int evlis(int addr) {
+    argpush(addr);
+    checkgbc();
+    if(IS_NIL(addr)) {
+        argpop();
+        return addr;
+    } else {
+        int car_addr = eval(car(addr));
+        argpush(car_addr);
+        int cdr_addr = evlis(cdr(addr));
+        argpop();
+        argpop();
+        return cons(car_addr, cdr_addr);
+    }
 }
 
 //-------エラー処理------
@@ -492,6 +534,92 @@ void error(int errnum, char *fun, int arg){
     }
     printf("\n");
     longjmp(buf,1);
+}
+
+void checkarg(int test, char *fun, int arg) {
+    switch(test) {
+    case NUMLIST_TEST:  if(isnumlis(arg)) return; else error(ARG_NUM_ERR, fun, arg);
+    case SYMBOL_TEST:   if(symbolp(arg)) return; else error(ARG_SYM_ERR, fun, arg);
+    case NUMBER_TEST:   if(numberp(arg)) return; else error(ARG_NUM_ERR, fun, arg);
+    case LIST_TEST:     if(listp(arg)) return; else  error(ARG_LIS_ERR, fun, arg);
+    case LEN0_TEST:     if(length(arg) == 0) return; else error(ARG_LEN0_ERR, fun, arg);
+    case LEN1_TEST:     if(length(arg) == 1) return; else error(ARG_LEN1_ERR, fun, arg);
+    case LEN2_TEST:     if(length(arg) == 2) return; else error(ARG_LEN2_ERR, fun, arg);
+    case LEN3_TEST:     if(length(arg) == 3) return; else error(ARG_LEN3_ERR, fun, arg);
+    }
+}
+
+int apply(int func, int args) {
+    int symaddr = findsym(func);
+    if (symaddr == 0) {
+        error(CANT_FIND_ERR, "apply", func);
+    } else {
+        switch(GET_TAG(symaddr)) {
+        case SUBR: return (GET_SUBR(symaddr))(args);
+        case FSUBR: return (GET_SUBR(symaddr))(args);
+        case FUNC: {
+            int varlist = car(GET_BIND(symaddr));
+            int body = cdr(GET_BIND(symaddr));
+            bindarg(varlist, args);
+            int res;
+            while(!(IS_NIL(body))) {
+                res = eval(car(body));
+                body = cdr(body);
+            }
+            unbind();
+            return res; }
+        }
+    }
+}
+
+// subrを環境に登録
+void defsubr(char *symname, int(*func)(int)) {
+    bindfunc(symname, SUBR, func);
+}
+
+// 引数を評価しない関数fsubrを登録
+void deffsubr(char *symname, int(*func)(int)) {
+    bindfunc(symname, FSUBR, func);
+}
+
+void bindfunc(char *name, tag tag, int(*func)(int)) {
+    int sym = makesym(name);
+    int val = freshcell();
+    SET_TAG(val, tag);
+    switch(tag) {
+    case SUBR:
+    case FSUBR: SET_SUBR(val, func); break;
+    case FUNC: SET_BIND(val, func); break;
+    }
+    SET_CDR(val, 0);
+    bindsym(sym, val);
+}
+
+void bindarg(int varlist, int arglist) {
+    push(ep);
+    while(!(IS_NIL(varlist))) {
+        int arg1 = car(varlist);
+        int arg2 = car(arglist);
+        assocsym(arg1, arg2);
+        varlist = cdr(varlist);
+        arglist = cdr(arglist);
+    }
+}
+
+void unbind(void) {
+    ep = pop();
+}
+
+int f_plus(int arglist) {
+    checkarg(NUMLIST_TEST, "+", arglist);
+    int res = 0;
+    while(!(IS_NIL(arglist))) {
+        int arg = GET_NUMBER(car(arglist));
+        arglist = cdr(arglist);
+        res = res + arg;
+    }
+    return makenum(res);
+
 }
 
 void initsubr() {

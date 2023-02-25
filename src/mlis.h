@@ -1,5 +1,4 @@
-#define printf_d(x) printf("%s = %d",#x,(x))
-#define printf_str(x) printf("%s = %s",#x,(x))
+
 
 #define FOR(i,a,b) for(int i=(a);i<(b);++i)
 #define REP(i,n)  FOR(i,0,n)
@@ -34,7 +33,7 @@ struct cell {
 	union {
 		int num;
 		int bind;
-		int(*subr)();
+		int (*subr)();
 	} val;
 	int car;
 	int cdr;
@@ -46,7 +45,7 @@ typedef enum toktype {
 	LPAREN, RPAREN, QUOTE, DOT, NUMBER, SYMBOL, OTHER
 } toktype;
 
-typedef enum backtrack{
+typedef enum backtrack {
 	GO, BACK
 } backtrack;
 
